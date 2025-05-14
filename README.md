@@ -192,3 +192,98 @@ Each **data type** defines its own packet body format (see sections 10.6.2 to 10
 2. Use that section (e.g., 10.6.4 for MIL-STD-1553) to parse the CSDW, IPTS, IPDH, and data words
 
 ---
+
+Based on your data type (`0x19` = **MIL-STD-1553B Data**) and data type version `0x06`, the packet body follows the **Format 1 MIL-STD-1553B message structure** as defined in section **10.6.4.2** of the IRIG 106-15 Chapter 10 PDF.
+
+---
+
+### 🧱 **MIL-STD-1553 Packet Body Layout (Format 1)**
+
+Here’s the complete breakdown of what the packet body contains and how to interpret it:
+
+---
+
+### 1. **Channel-Specific Data Word (CSDW) — 4 bytes**
+
+Located immediately after the Packet Header.
+
+**Bit breakdown (from MSB to LSB)**:
+
+* **Bits 31–30: TTB (Time Tag Bits)**
+  Indicates which part of the message is time-tagged:
+
+  * `00`: Last bit of last word
+  * `01`: First bit of first word
+  * `10`: Last bit of first (command) word
+  * `11`: Reserved
+
+* **Bits 29–24: Reserved**
+
+* **Bits 23–0: MSGCOUNT**
+  Total number of 1553 messages in this packet (each one is a transaction)
+
+---
+
+### 2. **For Each 1553 Message (repeated MSGCOUNT times)**:
+
+Each message consists of:
+
+#### a. **Intra-Packet Time Stamp (IPTS) — 8 bytes**
+
+* 64-bit time value (usually 48-bit RTC + 16 bits zero-filled).
+* Correlates to the bit specified by TTB.
+* May represent absolute time if enabled by packet flags.
+
+#### b. **Intra-Packet Data Header (IPDH) — 6 bytes**
+
+Split into 3 words (each 2 bytes):
+
+* **Block Status Word (BSW)**: Error and status flags (e.g., bus ID, sync error, word error).
+* **Gap Times Word**: Bus timing gap between words (e.g., GAP1 and GAP2).
+* **Length Word**: Total byte length of the upcoming message block (command, data, and status words).
+
+#### c. **Message Data Block**
+
+This contains the actual MIL-STD-1553 words:
+
+* **Command Word** (always first)
+* **Optional Second Command Word** (for RT-to-RT)
+* **Data Words** (0 to 32)
+* **Status Words** (1 or 2 depending on transaction type)
+
+Each word is typically **32 bits** in the file, where the lower 20 bits are valid (corresponding to the actual 1553 word), and the rest may be zero or used for metadata.
+
+---
+
+### 3. **Packet Trailer (at the end)**
+
+Includes:
+
+* Optional **checksum** (8, 16, or 32-bit depending on packet flags)
+* Optional **filler** (to make packet a multiple of 4 bytes)
+
+---
+
+### 📌 Summary Diagram (Simplified)
+
+```
+[ CSDW (4 bytes) ]
+[ IPTS 1 (8 bytes) ]
+[ IPDH 1 (6 bytes) ]
+[ Msg 1: Cmd, Data, Status (n bytes) ]
+
+[ IPTS 2 ]
+[ IPDH 2 ]
+[ Msg 2 ]
+
+...
+
+[ IPTS N ]
+[ IPDH N ]
+[ Msg N ]
+
+[ Packet Trailer ]
+```
+
+---
+
